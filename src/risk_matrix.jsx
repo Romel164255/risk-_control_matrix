@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 /* ─────────────────────────────────────────────────────────────
    IndexedDB helpers
 ───────────────────────────────────────────────────────────── */
-const DB_NAME = "rcm_db_v2";
+const DB_NAME = "rcm_db_stable_v1"; // NEVER change — a different name = fresh empty database
 const STORE    = "entries";
 
 function openDB() {
@@ -178,11 +178,14 @@ export default function RiskMatrix() {
     await dbPut(entry).then(flashSync).catch(console.error);
   }, [form, flashSync]);
 
-  /* Change priority inline */
-  const handlePriorityChange = useCallback(async (id, newPriority) => {
-    setEntries(p => p.map(e => e.id === id ? { ...e, priority: newPriority } : e));
-    const updated = (await dbGetAll()).find(e => e.id === id);
-    if (updated) await dbPut({ ...updated, priority: newPriority }).then(flashSync).catch(console.error);
+  /* Change priority inline — read from current state, not DB */
+  const handlePriorityChange = useCallback((id, newPriority) => {
+    setEntries(prev => {
+      const next = prev.map(e => e.id === id ? { ...e, priority: newPriority } : e);
+      const updated = next.find(e => e.id === id);
+      if (updated) dbPut(updated).then(flashSync).catch(console.error);
+      return next;
+    });
   }, [flashSync]);
 
   /* Delete */
@@ -218,15 +221,10 @@ export default function RiskMatrix() {
         }
         @keyframes spin { to { transform: rotate(360deg); } }
         .entry-card { animation: fadeSlideIn 0.3s ease both; }
-        textarea, input {
-          transition: border-color 0.2s !important;
-        }
-        textarea:focus, input:focus {
-          border-color: rgba(255,255,255,0.18) !important;
-          outline: none;
-        }
-        .del-btn { opacity: 0; transition: opacity 0.15s; }
-        .entry-card:hover .del-btn { opacity: 1; }
+        textarea, input { transition: border-color 0.2s !important; }
+        textarea:focus, input:focus { border-color: rgba(255,255,255,0.18) !important; outline: none; }
+        .del-btn { opacity: 0.25; transition: opacity 0.15s, color 0.15s; }
+        .del-btn:hover { opacity: 1 !important; }
       `}</style>
 
       {/* ── Top bar ── */}
@@ -431,16 +429,19 @@ export default function RiskMatrix() {
                         className="del-btn"
                         onClick={() => handleDelete(e.id)}
                         style={{
-                          background:"none", border:"none",
-                          color:"#2a2a2a", cursor:"pointer",
-                          fontSize:14, lineHeight:1,
-                          padding:"0 2px", fontFamily:"inherit",
-                          transition:"color 0.15s",
+                          background:"rgba(255,48,48,0.08)",
+                          border:"1px solid rgba(255,48,48,0.15)",
+                          color:"#ff3030", cursor:"pointer",
+                          fontSize:11, lineHeight:1,
+                          padding:"4px 8px", borderRadius:5,
+                          fontFamily:"inherit",
+                          letterSpacing:"0.06em",
+                          fontWeight:500,
                         }}
-                        onMouseEnter={ev => ev.currentTarget.style.color="#ff4040"}
-                        onMouseLeave={ev => ev.currentTarget.style.color="#2a2a2a"}
-                        title="Delete"
-                      >×</button>
+                        onMouseEnter={ev => { ev.currentTarget.style.background="rgba(255,48,48,0.18)"; ev.currentTarget.style.borderColor="rgba(255,48,48,0.4)"; }}
+                        onMouseLeave={ev => { ev.currentTarget.style.background="rgba(255,48,48,0.08)"; ev.currentTarget.style.borderColor="rgba(255,48,48,0.15)"; }}
+                        title="Delete entry"
+                      >Delete</button>
                     </div>
 
                     {/* Risk */}
